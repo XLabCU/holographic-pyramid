@@ -2,11 +2,11 @@
 
 A real-time desktop window capture system that creates holographic displays using the Pepper's ghost illusion with a transparent pyramid.
 
-<video controls="controls" src="output.mp4">
-    Your browser does not support the HTML5 Video element.
-</video>
 
-Many years ago, student Alexis Mawko built a smartphone holographic projector as part of HIST3814 at Carleton University. Her write-up was posted by Shawn Graham (with permission) at [electricarchaeology](https://electricarchaeology.ca/2018/04/13/guest-post-alexis-mawko-lessons-from-warhol/). That example has long been percolating in my head: what if you could real-time stream whatever application you were working in to such a thing? And then we saw [this project by Gian Fernandes](https://www.instructables.com/Hologram-Display-Peppers-Ghost-Projector-Part-2/) using the [Pepper's Ghost illusion](https://en.wikipedia.org/wiki/Pepper's_ghost) to highlight and interpret a 3d print of Squamish BC. And we also came across this [piece about the London Underground and visualizing it with a pyramid/Pepper's Ghost effect].
+[<img src="" width="600" height="300"/>](output.mp4)
+
+
+Many years ago, student Alexis Mawko built a smartphone holographic projector as part of HIST3814 at Carleton University. Her write-up was posted by Shawn Graham (with permission) at [electricarchaeology](https://electricarchaeology.ca/2018/04/13/guest-post-alexis-mawko-lessons-from-warhol/). That example has long been percolating in my head: what if you could real-time stream whatever application you were working in to such a thing? And then we saw [this project by Gian Fernandes](https://www.instructables.com/Hologram-Display-Peppers-Ghost-Projector-Part-2/) using the [Pepper's Ghost illusion](https://en.wikipedia.org/wiki/Pepper's_ghost) to highlight and interpret a 3d print of Squamish BC. And we also came across this [piece about the London Underground and visualizing it with a pyramid/Pepper's Ghost effect](https://medium.com/data-science/holographic-london-underground-visualisation-b0462ae19d6e). Which all seemed neat.
 
 So we're going to build a system to stream real-time windows through a pyramid. We're in the process of building a large display box. We'll use an older flat monitor we have handy to project. And we'll wire it up to one of our computers. There will also be a small mount for a Leap motion control. 
 
