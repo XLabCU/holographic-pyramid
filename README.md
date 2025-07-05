@@ -13,7 +13,7 @@ So we're going to build a system to stream real-time windows through a pyramid. 
 
 Why? Why do all this? Because we want to explore ways of interacting with cultural heritage data beyond the screen. This is just our first experiment.
 
-NB: code is still developing. More functions to be added.
+NB: code is still developing. For starters, I gotta go build a pyramid now and test how this actually looks... and more functions to be added.
 
 ## Install dependencies:
 
