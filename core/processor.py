@@ -1,5 +1,5 @@
 """
-Refactored Image processing module for hologram pyramid display.
+Image processing module for hologram pyramid display.
 Handles rotation, scaling, and quadrant arrangement for the Pepper's Ghost illusion.
 """
 import cv2

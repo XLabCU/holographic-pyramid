@@ -1,5 +1,5 @@
 """
-Refactored Display renderer for hologram pyramid.
+Display renderer for hologram pyramid.
 Handles fullscreen display, user input, and the main rendering loop with improved performance.
 """
 import threading

@@ -1,5 +1,5 @@
 """
-Refactored Core window capture functionality for hologram pyramid display.
+Core window capture functionality for hologram pyramid display.
 Handles real-time desktop window capture with cross-platform support.
 """
 import platform
