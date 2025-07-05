@@ -27,6 +27,9 @@ pip install -r requirements.txt
 
 Then, you'll need a pyramid made out of transparent material like acrylic or perspex. The calculator at [https://hologram.kgabriel.dev/en-US/] might be helpful for generating a template that you can use for cutting. See also this [instructable](https://www.instructables.com/Reflective-Prism/) which also features the Leap motion controller.
 
+## Likely problems
+Right now, the code just flips the window object horizontally and vertically. This is likely a naive approach. Like I said, gotta go get a pyramid.
+
 ## Usage
 
 Get your target application running. 
