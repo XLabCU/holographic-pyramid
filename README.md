@@ -3,7 +3,8 @@
 A real-time desktop window capture system that creates holographic displays using the Pepper's ghost illusion with a transparent pyramid.
 
 
-[<img src="" width="600" height="300"/>](output.mp4)
+https://github.com/user-attachments/assets/487160d6-fe74-4e2d-8814-ca9e51cc3769
+
 
 
 Many years ago, student Alexis Mawko built a smartphone holographic projector as part of HIST3814 at Carleton University. Her write-up was posted by Shawn Graham (with permission) at [electricarchaeology](https://electricarchaeology.ca/2018/04/13/guest-post-alexis-mawko-lessons-from-warhol/). That example has long been percolating in my head: what if you could real-time stream whatever application you were working in to such a thing? And then we saw [this project by Gian Fernandes](https://www.instructables.com/Hologram-Display-Peppers-Ghost-Projector-Part-2/) using the [Pepper's Ghost illusion](https://en.wikipedia.org/wiki/Pepper's_ghost) to highlight and interpret a 3d print of Squamish BC. And we also came across this [piece about the London Underground and visualizing it with a pyramid/Pepper's Ghost effect](https://medium.com/data-science/holographic-london-underground-visualisation-b0462ae19d6e). Which all seemed neat.
