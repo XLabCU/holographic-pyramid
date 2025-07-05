@@ -29,8 +29,17 @@ Then, you'll need a pyramid made out of transparent material like acrylic or per
 
 ## Usage
 
-Get your target application running. Then, in a terminal, `$python main.py`. Select the target window from the list. Maximize the screen.
+Get your target application running. 
 
+Then, in a terminal, `$python main.py`. 
+
+The open/available application windows will be listed. 
+
+Select the target window from the list. Maximize the screen.
+
+Other options:
+
+```
 usage: main.py [-h] [--title TITLE | --region X Y W H | --demo]
 
 options:
@@ -38,6 +47,7 @@ options:
   --title TITLE     Title of the window to capture.
   --region X Y W H  Capture a specific screen region (x, y, width, height).
   --demo            Run in demo mode with a test pattern.
+```
 
 For macOS, window capture may require screen recording permissions. Go to system settings  -> privacy & security -> screen & system audio recording, and give the terminal permission to record screen/audio.
 
