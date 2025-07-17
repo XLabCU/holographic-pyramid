@@ -12,6 +12,7 @@ from enum import Enum
 import cv2
 import numpy as np
 
+
 logger = logging.getLogger(__name__)
 
 class DisplayMode(Enum):
@@ -175,6 +176,7 @@ class PyramidRenderer:
         except Exception as e:
             logger.error(f"Error adding startup message: {e}")
 
+    
     def start_rendering(self, frame_callback: Callable[[], Optional[np.ndarray]]):
         """Start the main rendering loop with enhanced performance monitoring."""
         if not self._window_initialized:
@@ -190,6 +192,7 @@ class PyramidRenderer:
         try:
             while self._state != RenderState.STOPPED and not self._shutdown_event.is_set():
                 loop_start_time = time.time()
+                
                 
                 # Check if window was closed
                 if not self._is_window_open():
@@ -462,13 +465,16 @@ class PyramidRenderer:
         else:
             logger.warning(f"Invalid FPS value: {fps}. Must be between 1 and 120")
 
+    # In the PyramidRenderer class...
+
     def cleanup(self):
         """Clean up resources and close windows."""
         try:
             logger.info("Cleaning up renderer resources")
             
-            # Stop rendering if still running
-            if self.is_running():
+            # MODIFIED: Check if the '_state' attribute exists before using it.
+            # This prevents errors if the object was not fully initialized.
+            if hasattr(self, '_state') and self.is_running():
                 self.stop_rendering()
                 
             # Wait a moment for cleanup
@@ -478,8 +484,10 @@ class PyramidRenderer:
             cv2.destroyAllWindows()
             
             # Clear frame data
-            with self.frame_lock:
-                self.current_frame = None
+            # Also check if frame_lock was initialized
+            if hasattr(self, 'frame_lock'):
+                with self.frame_lock:
+                    self.current_frame = None
                 
             self._window_initialized = False
             logger.info("Renderer cleanup completed")

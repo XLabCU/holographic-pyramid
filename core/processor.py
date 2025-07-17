@@ -1,6 +1,6 @@
 """
 Image processing module for hologram pyramid display.
-Handles rotation, scaling, and quadrant arrangement for the Pepper's Ghost illusion.
+Handles dynamic, aspect-ratio-correct scaling and layout.
 """
 import cv2
 import numpy as np
@@ -11,329 +11,134 @@ from dataclasses import dataclass
 
 logger = logging.getLogger(__name__)
 
-class QuadrantPosition(Enum):
-    """Enumeration for pyramid quadrant positions."""
-    TOP_LEFT = "top_left"      # Back view
-    TOP_RIGHT = "top_right"    # Right view
-    BOTTOM_LEFT = "bottom_left"   # Left view
-    BOTTOM_RIGHT = "bottom_right" # Front view
+class View(Enum):
+    FRONT = "front"
+    BACK = "back"
+    LEFT = "left"
+    RIGHT = "right"
 
 @dataclass
 class ProcessingConfig:
-    """Configuration for image processing parameters."""
-    content_scale: float = 0.9          # Scale content to leave border
-    interpolation: int = cv2.INTER_AREA # Interpolation method for resizing
-    background_color: Tuple[int, int, int] = (0, 0, 0)  # Background color (BGR)
-    enable_antialiasing: bool = True     # Enable antialiasing for rotations
-    quality_mode: str = "balanced"       # "fast", "balanced", "high_quality"
+    """Configuration for the image processor."""
+    # This controls the height of the final generated image.
+    # Higher values produce a higher resolution output.
+    base_height: int = 1080
+    interpolation: int = cv2.INTER_AREA
 
 class ImageProcessor:
-    """Handles image processing operations for pyramid display with improved flexibility."""
+    """
+    Handles the creation of a dynamically sized, aspect-ratio-correct 
+    cross layout for a Pepper's Ghost pyramid.
+    """
 
-    def __init__(self, output_width: int = 1920, output_height: int = 1080, config: Optional[ProcessingConfig] = None):
-        self.output_width = output_width
-        self.output_height = output_height
-        self.quadrant_width = output_width // 2
-        self.quadrant_height = output_height // 2
-        
-        # Processing configuration
+    def __init__(self, config: Optional[ProcessingConfig] = None):
         self.config = config or ProcessingConfig()
-        
-        # Rotation angles for each view of the pyramid
+        # these angles are arranged for a pyramid whose 'top' sits on the display
+        # if you want the opposite (so that images are projected against the inside of the pyramid)
+        # you'd adjust these 180.
         self.rotations = {
-            QuadrantPosition.TOP_LEFT: 180,      # Back view
-            QuadrantPosition.TOP_RIGHT: 270,     # Right view  
-            QuadrantPosition.BOTTOM_LEFT: 90,    # Left view
-            QuadrantPosition.BOTTOM_RIGHT: 0,    # Front view
+            View.FRONT: 0,
+            View.BACK: 180,
+            View.LEFT: 270,
+            View.RIGHT: 90,
         }
-        
-        # Performance optimization: pre-calculate common values
-        self._update_derived_values()
-        
-        logger.info(f"ImageProcessor initialized: {output_width}x{output_height}, quadrants: {self.quadrant_width}x{self.quadrant_height}")
+        logger.info(f"ImageProcessor initialized with base height: {self.config.base_height}")
 
-    def _update_derived_values(self):
-        """Update derived values when configuration changes."""
-        self.effective_quad_width = int(self.quadrant_width * self.config.content_scale)
-        self.effective_quad_height = int(self.quadrant_height * self.config.content_scale)
+    # In core/processor.py
 
-    def set_output_resolution(self, width: int, height: int):
-        """Update output resolution and recalculate quadrant dimensions."""
-        if width <= 0 or height <= 0:
-            raise ValueError("Width and height must be positive")
-            
-        self.output_width = width
-        self.output_height = height
-        self.quadrant_width = width // 2
-        self.quadrant_height = height // 2
-        self._update_derived_values()
-        
-        logger.info(f"Resolution updated to {width}x{height}")
-
-    def set_config(self, config: ProcessingConfig):
-        """Update processing configuration."""
-        self.config = config
-        self._update_derived_values()
-        logger.info("Processing configuration updated")
-
-    def create_pyramid_layout(self, source_image: np.ndarray) -> np.ndarray:
+    def create_pyramid_layout(self, source_image: np.ndarray) -> Optional[np.ndarray]:
         """
-        Create the complete four-quadrant pyramid layout from a source image.
-        
-        Args:
-            source_image: Input image to process
-            
-        Returns:
-            Processed image with four quadrant views arranged for pyramid display
+        Creates the complete pyramid layout using a robust 3x3 grid system
+        to prevent any view overlap.
         """
         if source_image is None or source_image.size == 0:
-            logger.warning("Invalid source image provided")
-            return self._create_empty_frame()
+            return None
 
-        try:
-            # Validate input image
-            if len(source_image.shape) != 3 or source_image.shape[2] != 3:
-                logger.error(f"Invalid image shape: {source_image.shape}. Expected (H, W, 3)")
-                return self._create_empty_frame()
-
-            # Process each quadrant view
-            quadrants = {}
-            for position in QuadrantPosition:
-                try:
-                    quadrants[position] = self._process_view(source_image, self.rotations[position])
-                except Exception as e:
-                    logger.error(f"Error processing quadrant {position}: {e}")
-                    quadrants[position] = self._create_empty_quadrant()
-
-            # Arrange quadrants into final layout
-            return self._arrange_quadrants(quadrants)
-            
-        except Exception as e:
-            logger.error(f"Error creating pyramid layout: {e}")
-            return self._create_empty_frame()
-
-    def _process_view(self, image: np.ndarray, angle: int) -> np.ndarray:
-        """
-        Process a source image for a single view of the pyramid.
+        # --- Stage 1: Establish a single, consistent scale factor ---
+        # The scale is determined by the desired final height of the side views,
+        # which after rotation, corresponds to the source image's width.
+        side_view_target_h = self.config.base_height // 2
+        src_h, src_w = source_image.shape[:2]
+        if src_w == 0:
+            return None
         
-        Args:
-            image: Source image
-            angle: Rotation angle in degrees
-            
-        Returns:
-            Processed quadrant image
-        """
-        try:
-            # 1. Calculate optimal scale considering rotation
-            scale = self._calculate_optimal_scale(image, angle)
-            
-            if scale <= 0:
-                logger.warning(f"Invalid scale calculated: {scale}")
-                return self._create_empty_quadrant()
+        scale = side_view_target_h / src_w
 
-            # 2. Resize image
+        # --- Stage 2: Process all four views with the same scale factor ---
+        # This ensures the "thickness" of the cross's arms is consistent.
+        processed_left = self._process_view(source_image, scale, self.rotations[View.LEFT])
+        processed_right = self._process_view(source_image, scale, self.rotations[View.RIGHT])
+        processed_front = self._process_view(source_image, scale, self.rotations[View.FRONT])
+        processed_back = self._process_view(source_image, scale, self.rotations[View.BACK])
+
+        if processed_left is None or processed_front is None:
+            return None
+
+        # --- Stage 3: Define the dimensions of the 3x3 grid cells ---
+        # The "thickness" of the arms (the dimension that meets in the middle).
+        # This is the height of the side views and the width of the top/bottom views.
+        thickness = processed_left.shape[0]
+
+        # The length of the horizontal arms (left/right views).
+        # This is the width of the side views.
+        h_arm_length = processed_left.shape[1]
+
+        # The length of the vertical arms (top/bottom views).
+        # This is the height of the top/bottom views.
+        v_arm_length = processed_front.shape[0]
+
+        # --- Stage 4: Create the final canvas and paste the views into the grid ---
+        final_width = h_arm_length + thickness + h_arm_length
+        final_height = v_arm_length + thickness + v_arm_length
+        final_layout = np.zeros((final_height, final_width, 3), dtype=np.uint8)
+
+        # Paste FRONT view into the top-center cell
+        x = h_arm_length
+        y = 0
+        self._paste_image(final_layout, processed_front, x, y)
+
+        # Paste BACK view into the bottom-center cell
+        x = h_arm_length
+        y = v_arm_length + thickness
+        self._paste_image(final_layout, processed_back, x, y)
+
+        # Paste LEFT view into the middle-left cell
+        x = 0
+        y = v_arm_length
+        self._paste_image(final_layout, processed_left, x, y)
+
+        # Paste RIGHT view into the middle-right cell
+        x = h_arm_length + thickness
+        y = v_arm_length
+        self._paste_image(final_layout, processed_right, x, y)
+
+        return final_layout
+
+    def _process_view(self, image: np.ndarray, scale: float, angle: int) -> Optional[np.ndarray]:
+        """Helper to scale and rotate an image."""
+        try:
             resized = self._resize_image(image, scale)
-            if resized is None:
-                return self._create_empty_quadrant()
-
-            # 3. Rotate image
-            rotated = self._rotate_image(resized, angle)
-            if rotated is None:
-                return self._create_empty_quadrant()
-
-            # 4. Center in quadrant
-            return self._center_in_quadrant(rotated)
-            
+            if resized is None: return None
+            return self._rotate_image(resized, angle)
         except Exception as e:
-            logger.error(f"Error processing view with angle {angle}: {e}")
-            return self._create_empty_quadrant()
-
-    def _calculate_optimal_scale(self, image: np.ndarray, angle: int) -> float:
-        """Calculate optimal scale factor considering rotation."""
-        h, w = image.shape[:2]
-        
-        if w == 0 or h == 0:
-            return 0.0
-        
-        # Account for dimension swap during 90/270 degree rotations
-        if angle in [90, 270]:
-            target_w, target_h = self.effective_quad_height, self.effective_quad_width
-        else:
-            target_w, target_h = self.effective_quad_width, self.effective_quad_height
-        
-        return min(target_w / w, target_h / h)
+            logger.error(f"Error in _process_view: {e}")
+            return None
 
     def _resize_image(self, image: np.ndarray, scale: float) -> Optional[np.ndarray]:
-        """Resize image with the given scale factor."""
-        try:
-            h, w = image.shape[:2]
-            new_w, new_h = int(w * scale), int(h * scale)
-            
-            if new_w <= 0 or new_h <= 0:
-                return None
-                
-            # Choose interpolation method based on scale
-            if scale < 1.0:
-                interpolation = cv2.INTER_AREA  # Best for downscaling
-            else:
-                interpolation = self.config.interpolation
-                
-            return cv2.resize(image, (new_w, new_h), interpolation=interpolation)
-            
-        except Exception as e:
-            logger.error(f"Error resizing image: {e}")
-            return None
+        h, w = image.shape[:2]
+        new_w, new_h = int(w * scale), int(h * scale)
+        if new_w <= 0 or new_h <= 0: return None
+        interpolation = self.config.interpolation if scale < 1.0 else cv2.INTER_LINEAR
+        return cv2.resize(image, (new_w, new_h), interpolation=interpolation)
 
-    def _rotate_image(self, image: np.ndarray, angle: int) -> Optional[np.ndarray]:
-        """Rotate image by the specified angle."""
-        try:
-            if angle == 0:
-                return image
-            elif angle == 90:
-                return cv2.rotate(image, cv2.ROTATE_90_CLOCKWISE)
-            elif angle == 180:
-                return cv2.rotate(image, cv2.ROTATE_180)
-            elif angle == 270:
-                return cv2.rotate(image, cv2.ROTATE_90_COUNTERCLOCKWISE)
-            else:
-                # For arbitrary angles, use rotation matrix
-                h, w = image.shape[:2]
-                center = (w // 2, h // 2)
-                matrix = cv2.getRotationMatrix2D(center, angle, 1.0)
-                
-                # Calculate new dimensions
-                cos_angle = abs(matrix[0, 0])
-                sin_angle = abs(matrix[0, 1])
-                new_w = int((h * sin_angle) + (w * cos_angle))
-                new_h = int((h * cos_angle) + (w * sin_angle))
-                
-                # Adjust translation
-                matrix[0, 2] += (new_w / 2) - center[0]
-                matrix[1, 2] += (new_h / 2) - center[1]
-                
-                return cv2.warpAffine(image, matrix, (new_w, new_h), 
-                                    flags=cv2.INTER_LINEAR if self.config.enable_antialiasing else cv2.INTER_NEAREST,
-                                    borderValue=self.config.background_color)
-                
-        except Exception as e:
-            logger.error(f"Error rotating image by {angle} degrees: {e}")
-            return None
+    def _rotate_image(self, image: np.ndarray, angle: int) -> np.ndarray:
+        if angle == 90: return cv2.rotate(image, cv2.ROTATE_90_CLOCKWISE)
+        if angle == 180: return cv2.rotate(image, cv2.ROTATE_180)
+        if angle == 270: return cv2.rotate(image, cv2.ROTATE_90_COUNTERCLOCKWISE)
+        return image
 
-    def _center_in_quadrant(self, image: np.ndarray) -> np.ndarray:
-        """Center the processed image in a quadrant-sized canvas."""
-        try:
-            final_h, final_w = image.shape[:2]
-            
-            # Create quadrant canvas
-            quadrant = np.full((self.quadrant_height, self.quadrant_width, 3), 
-                              self.config.background_color, dtype=np.uint8)
-            
-            # Calculate centering offsets
-            y_offset = max(0, (self.quadrant_height - final_h) // 2)
-            x_offset = max(0, (self.quadrant_width - final_w) // 2)
-            
-            # Ensure we don't exceed quadrant boundaries
-            end_y = min(y_offset + final_h, self.quadrant_height)
-            end_x = min(x_offset + final_w, self.quadrant_width)
-            
-            # Calculate actual region to copy (in case image is larger than quadrant)
-            copy_h = end_y - y_offset
-            copy_w = end_x - x_offset
-            
-            if copy_h > 0 and copy_w > 0:
-                quadrant[y_offset:end_y, x_offset:end_x] = image[:copy_h, :copy_w]
-            
-            return quadrant
-            
-        except Exception as e:
-            logger.error(f"Error centering image in quadrant: {e}")
-            return self._create_empty_quadrant()
-
-    def _arrange_quadrants(self, quadrants: Dict[QuadrantPosition, np.ndarray]) -> np.ndarray:
-        """Arrange the four quadrants into the final layout."""
-        try:
-            # Arrange into the final layout:
-            # Top-Left: Back, Top-Right: Right
-            # Bottom-Left: Left, Bottom-Right: Front
-            top_row = np.hstack([
-                quadrants[QuadrantPosition.TOP_LEFT], 
-                quadrants[QuadrantPosition.TOP_RIGHT]
-            ])
-            bottom_row = np.hstack([
-                quadrants[QuadrantPosition.BOTTOM_LEFT], 
-                quadrants[QuadrantPosition.BOTTOM_RIGHT]
-            ])
-            
-            return np.vstack([top_row, bottom_row])
-            
-        except Exception as e:
-            logger.error(f"Error arranging quadrants: {e}")
-            return self._create_empty_frame()
-
-    def _create_empty_frame(self) -> np.ndarray:
-        """Create an empty frame with the output dimensions."""
-        return np.full((self.output_height, self.output_width, 3), 
-                      self.config.background_color, dtype=np.uint8)
-
-    def _create_empty_quadrant(self) -> np.ndarray:
-        """Create an empty quadrant."""
-        return np.full((self.quadrant_height, self.quadrant_width, 3), 
-                      self.config.background_color, dtype=np.uint8)
-
-    def get_quadrant_info(self) -> Dict[str, any]:
-        """Get information about current quadrant configuration."""
-        return {
-            'output_resolution': (self.output_width, self.output_height),
-            'quadrant_size': (self.quadrant_width, self.quadrant_height),
-            'effective_size': (self.effective_quad_width, self.effective_quad_height),
-            'content_scale': self.config.content_scale,
-            'rotations': {pos.value: angle for pos, angle in self.rotations.items()}
-        }
-
-    def set_content_scale(self, scale: float):
-        """Update content scale factor."""
-        if 0.1 <= scale <= 1.0:
-            self.config.content_scale = scale
-            self._update_derived_values()
-            logger.info(f"Content scale updated to {scale}")
-        else:
-            logger.warning(f"Invalid content scale: {scale}. Must be between 0.1 and 1.0")
-
-    def save_debug_frame(self, frame: np.ndarray, filename: str = "debug_frame.png"):
-        """Save a frame for debugging purposes."""
-        try:
-            cv2.imwrite(filename, frame)
-            logger.info(f"Debug frame saved to {filename}")
-        except Exception as e:
-            logger.error(f"Error saving debug frame: {e}")
-
-    def create_test_pattern(self) -> np.ndarray:
-        """Create a test pattern for calibration and debugging."""
-        try:
-            # Create a test image with various elements
-            test_image = np.zeros((400, 600, 3), dtype=np.uint8)
-            
-            # Add colored rectangles
-            test_image[50:150, 50:150] = [255, 0, 0]    # Red
-            test_image[50:150, 200:300] = [0, 255, 0]   # Green  
-            test_image[250:350, 50:150] = [0, 0, 255]   # Blue
-            test_image[250:350, 200:300] = [255, 255, 0] # Yellow
-            
-            # Add circle
-            cv2.circle(test_image, (450, 200), 50, (255, 255, 255), -1)
-            
-            # Add text
-            cv2.putText(test_image, "TEST", (400, 350), 
-                       cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2)
-            
-            # Add grid lines for alignment
-            for i in range(0, 600, 50):
-                cv2.line(test_image, (i, 0), (i, 400), (64, 64, 64), 1)
-            for i in range(0, 400, 50):
-                cv2.line(test_image, (0, i), (600, i), (64, 64, 64), 1)
-            
-            return self.create_pyramid_layout(test_image)
-            
-        except Exception as e:
-            logger.error(f"Error creating test pattern: {e}")
-            return self._create_empty_frame()
+    def _paste_image(self, canvas: np.ndarray, image: np.ndarray, x: int, y: int):
+        """Helper to safely paste an image onto a canvas."""
+        if image is None: return
+        h, w = image.shape[:2]
+        canvas[y:y+h, x:x+w] = image
