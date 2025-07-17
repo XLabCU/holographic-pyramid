@@ -20,8 +20,11 @@ class HologramPyramidApp:
         self.args = args
         self.capture = WindowCapture()
         # Initialize processor with a placeholder resolution; will be updated later.
-        self.processor = ImageProcessor(1920, 1080)
+        from core.processor import ProcessingConfig
+        proc_config = ProcessingConfig(base_height=1080)
+        self.processor = ImageProcessor(config=proc_config)
         self.renderer = PyramidRenderer()
+        
         self.selected_window_info = None
 
     def list_windows(self):
@@ -101,9 +104,10 @@ class HologramPyramidApp:
         print("\nInitializing display...")
         # Use primary monitor resolution for the display window
         screen_width, screen_height = self.renderer.get_monitor_resolution()
-        self.processor.set_output_resolution(screen_width, screen_height)
+
         
-        if not self.renderer.initialize_display(screen_width, screen_height):
+        
+        if not self.renderer.initialize_display(screen_width // 2, screen_height // 2): # Start with a smaller window
             print("Failed to initialize display. Exiting.")
             return
 
@@ -146,6 +150,7 @@ class HologramPyramidApp:
     def _get_demo_frame(self):
         """Callback to generate a demo frame."""
         # Create test pattern
+        # this is a little wonky don't worry
         test_image = np.zeros((400, 600, 3), dtype=np.uint8)
         # Add some colored rectangles for testing
         test_image[50:150, 50:150] = [255, 0, 0]    # Red square
