@@ -68,7 +68,9 @@ For macOS, window capture may require screen recording permissions. Go to system
 
 This hasn't been tested on a windows machine yet.
 
-![](recording.png)
+![](IMG_1527.png)
+
+Ok, our first attempt at a pyramid is a little wonky, and in the image we're holding it against a vertical screen, but you get the idea. 
 
 ## Dependencies
 
