@@ -3,7 +3,7 @@
 A real-time desktop window capture system that creates holographic displays using the Pepper's ghost illusion with a transparent pyramid.
 
 
-https://github.com/user-attachments/assets/487160d6-fe74-4e2d-8814-ca9e51cc3769
+https://github.com/user-attachments/assets/1c6a7493-af4e-4488-bb93-453c53157671
 
 
 
