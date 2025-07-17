@@ -6,7 +6,6 @@ A real-time desktop window capture system that creates holographic displays usin
 https://github.com/user-attachments/assets/1c6a7493-af4e-4488-bb93-453c53157671
 
 
-
 Many years ago, student Alexis Mawko built a smartphone holographic projector as part of HIST3814 at Carleton University. Her write-up was posted by Shawn Graham (with permission) at [electricarchaeology](https://electricarchaeology.ca/2018/04/13/guest-post-alexis-mawko-lessons-from-warhol/). That example has long been percolating in Shawn's head: what if you could real-time stream whatever application you were working in to such a thing? 
 
 And then we saw [this project by Gian Fernandes](https://www.instructables.com/Hologram-Display-Peppers-Ghost-Projector-Part-2/) using the [Pepper's Ghost illusion](https://en.wikipedia.org/wiki/Pepper's_ghost) to highlight and interpret a 3d print of Squamish BC. And we also came across this [piece about the London Underground and visualizing it with a pyramid/Pepper's Ghost effect](https://medium.com/data-science/holographic-london-underground-visualisation-b0462ae19d6e). Which all seemed neat.
@@ -15,7 +14,6 @@ So we're going to build a system to stream real-time windows through a pyramid. 
 
 Why? Why do all this? Because we want to explore ways of interacting with cultural heritage data beyond the screen. This is just our first experiment.
 
-NB: code is still developing. For starters, I gotta go build a pyramid now and test how this actually looks... and more functions to be added.
 
 ## Install dependencies:
 
@@ -27,8 +25,22 @@ pip install -r requirements.txt
 
 Then, you'll need a pyramid made out of transparent material like acrylic or perspex. The calculator at [https://hologram.kgabriel.dev/en-US/] might be helpful for generating a template that you can use for cutting. See also this [instructable](https://www.instructables.com/Reflective-Prism/) which also features the Leap motion controller.
 
-## Likely problems
-Right now, the code just flips the window object horizontally and vertically. This is likely a naive approach. Like I said, gotta go get a pyramid.
+## Pyramid below or above?
+Right now, I'm assuming a pyramid sitting on a display with the flattened tip against the glass, projecting upwards. If you wanted to reverse that, or you wanted the pyramid to sit with its long side against the glass etc, you'll want to fiddle with the settings in processor.py ImageProcessor:
+
+```python
+   def __init__(self, config: Optional[ProcessingConfig] = None):
+        self.config = config or ProcessingConfig()
+        # these angles are arranged for a pyramid whose 'top' sits on the display
+        # if you want the opposite (so that images are projected against the inside of the pyramid)
+        # you'd adjust these 180.
+        self.rotations = {
+            View.FRONT: 0,
+            View.BACK: 180,
+            View.LEFT: 270,
+            View.RIGHT: 90,
+        }
+```
 
 ## Usage
 
